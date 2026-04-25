@@ -1,7 +1,7 @@
 # ⚖ FairLens — AI Bias Detection & Fairness Auditing Platform
 ### Google Solution Challenge 2026 · Build with AI · Theme: Unbiased AI Decision
 
-FairLens detects, measures, explains and fixes AI bias — with 5 unique WOW features
+FairLens detects, measures, explains and fixes AI bias — with 6 unique WOW features
 that go far beyond any other bias tool.
 
 ---
@@ -20,6 +20,7 @@ fairlens/
 │   ├── case_explainer.py  ← Feature 3: Individual Case Explainer
 │   ├── gemini_chat.py     ← Feature 4: Gemini AI Chat
 │   ├── certificate.py     ← Feature 5: Fairness Certificate
+│   ├── bias_autopsy.py    ← Feature 6: Bias Autopsy
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
@@ -33,6 +34,7 @@ fairlens/
 │   │   │   ├── CaseExplainer.js      ← WOW Feature 3
 │   │   │   ├── GeminiChat.js         ← WOW Feature 4
 │   │   │   ├── Certificate.js        ← WOW Feature 5
+│   │   │   ├── BiasAutopsy.js          ← WOW Feature 6
 │   │   │   └── FeaturePage.css
 │   │   └── utils/api.js
 │   └── package.json
@@ -55,17 +57,30 @@ fairlens/
 
 ### Terminal 1 — Backend
 
+**Windows:**
+```powershell
+cd fairlens\backend
+pip install -r requirements.txt
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Mac/Linux:**
 ```bash
+cd fairlens/backend
+pip3 install -r requirements.txt
+python3 -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Or using startup scripts:**
+```bash
+# Mac/Linux
 cd fairlens
 chmod +x start_backend.sh
 ./start_backend.sh
-```
 
-**Or manually:**
-```bash
-cd fairlens/backend
-pip3 install -r requirements.txt --break-system-packages
-python3 -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# Windows (PowerShell)
+cd fairlens\backend
+python start_backend.py
 ```
 
 Wait for: `Uvicorn running on http://0.0.0.0:8000`
@@ -74,16 +89,29 @@ Wait for: `Uvicorn running on http://0.0.0.0:8000`
 
 ### Terminal 2 — Frontend
 
-```bash
-cd fairlens
-chmod +x start_frontend.sh
-./start_frontend.sh
+**Windows:**
+```powershell
+cd fairlens\frontend
+npm install
+npm start
 ```
 
-**Or manually:**
+**Mac/Linux:**
 ```bash
 cd fairlens/frontend
 npm install
+npm start
+```
+
+**Or using startup scripts:**
+```bash
+# Mac/Linux
+cd fairlens
+chmod +x start_frontend.sh
+./start_frontend.sh
+
+# Windows (PowerShell)
+cd fairlens\frontend
 npm start
 ```
 
@@ -96,7 +124,7 @@ Wait for: `Compiled successfully! Local: http://localhost:3000`
 
 ---
 
-## 🌟 The 5 WOW Features
+## 🌟 The 6 WOW Features
 
 ### 1. ⏳ Bias Time Machine
 See how this model's bias would have looked across different historical eras (2000→2026).
@@ -123,6 +151,15 @@ Generate a signed, timestamped, self-contained HTML certificate
 with unique ID. Download and share — open in any browser, print as PDF,
 attach to submissions or show to regulators.
 
+### 6. 🧬 Bias Autopsy
+Root-cause investigation engine with 4 deep analyses:
+- **Historical Outcome Bias** - Was training data already unfair?
+- **Proxy Chain Analysis** - Full feature→feature→protected→outcome chains
+- **Intersectional Bias** - Bias in specific subgroups (e.g., "unprivileged + young")
+- **Decision Boundary Audit** - Exact numeric tipping points per group
+
+Identifies WHY bias exists and provides specific remediation paths.
+
 ---
 
 ## 🔑 Gemini API Key (optional)
@@ -135,8 +172,13 @@ For full Gemini AI responses:
    - Enter it in the app's chat interface (Key input field)
    - Or set environment variable before starting backend:
      ```bash
+     # Mac/Linux
      export GEMINI_API_KEY="your-key-here"
      ./start_backend.sh
+     
+     # Windows (PowerShell)
+     $env:GEMINI_API_KEY="your-key-here"
+     python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
      ```
 
 ---
@@ -170,6 +212,7 @@ Synthetic fallback activates automatically if URLs are unreachable.
 | `/cases/{idx}` | GET | **[WOW 3]** Explain one case |
 | `/chat` | POST | **[WOW 4]** Gemini AI chat |
 | `/certificate` | POST | **[WOW 5]** Generate HTML certificate |
+| `/autopsy` | GET | **[WOW 6]** Root-cause bias investigation |
 | `/docs` | GET | Interactive API docs (Swagger) |
 
 ---
@@ -193,7 +236,11 @@ curl http://localhost:8000/
 
 **pip install fails**
 ```bash
+# Mac/Linux
 pip3 install -r requirements.txt --user
+
+# Windows
+pip install -r requirements.txt --user
 ```
 
 **npm install fails**
