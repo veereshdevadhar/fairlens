@@ -37,7 +37,7 @@ export default function GeminiChat() {
   }]);
   const [input, setInput]     = useState('');
   const [loading, setLoading] = useState(false);
-  const [apiKey, setApiKey]   = useState('AIzaSyCw3me5uvPMpz1FkJcQi2sj8Oq92P-3JrM');
+  const [apiKey, setApiKey]   = useState('');
   const [showKey, setShowKey] = useState(false);
   const [source, setSource]   = useState('');
   const bottomRef = useRef();
