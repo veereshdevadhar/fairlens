@@ -257,4 +257,4 @@ Subsequent runs use synthetic fallback instantly if URLs fail.
 
 ---
 
-*FairLens · Google Solution Challenge 2026 · Submission deadline: April 24, 2026*
+
