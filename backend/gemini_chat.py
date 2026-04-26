@@ -84,8 +84,8 @@ You are a helpful, clear, and honest AI fairness expert.
 
 def _fallback_response(question: str, audit_context: dict) -> str:
     """
-    Rule-based fallback when Gemini API is unavailable.
-    Answers common questions using the audit data directly.
+    Comprehensive rule-based fallback when Gemini API is unavailable.
+    Handles all major question categories with specific, contextual answers.
     """
     q = question.lower()
     overall = audit_context.get("overall", {})
@@ -100,7 +100,12 @@ def _fallback_response(question: str, audit_context: dict) -> str:
     unpriv  = overall.get("unprivileged_group", "the unprivileged group")
     spd     = metrics.get("statistical_parity_difference", {}).get("value", None)
     di      = metrics.get("disparate_impact", {}).get("value", None)
+    tpr_diff = metrics.get("equalized_odds_difference_tpr", {}).get("value", None)
+    fpr_diff = metrics.get("equalized_odds_difference_fpr", {}).get("value", None)
+    pred_parity = metrics.get("predictive_parity_difference", {}).get("value", None)
+    acc_diff = metrics.get("accuracy_difference", {}).get("value", None)
 
+    # 🎯 BASIC UNDERSTANDING QUESTIONS
     if any(w in q for w in ["what is","explain","what does","what are","define","meaning"]):
         if "statistical parity" in q or "spd" in q:
             return (f"Statistical Parity Difference (SPD) measures how differently the model treats "
@@ -108,62 +113,188 @@ def _fallback_response(question: str, audit_context: dict) -> str:
                     f"A value of 0 means perfect equality. Negative means '{unpriv}' gets fewer positive outcomes. "
                     f"The industry standard threshold is ±0.1 — yours is "
                     f"{'within' if spd and abs(spd)<=0.1 else 'outside'} that range.")
+        
         if "disparate impact" in q or "di " in q:
             return (f"Disparate Impact Ratio measures the ratio of positive outcomes for '{unpriv}' "
                     f"divided by '{priv}'. Your value is {di:.4f}. "
                     f"A ratio below 0.8 is considered legally significant in the US (the '4/5ths rule'). "
                     f"A value of 1.0 means perfectly equal treatment.")
+        
+        if "equalized odds" in q:
+            if "tpr" in q:
+                return (f"Equalized Odds TPR gap measures if both groups have equal true positive rates. "
+                        f"Your TPR difference is {tpr_diff:.4f}. "
+                        f"This means '{unpriv}' has {'higher' if tpr_diff>0 else 'lower'} true positive rates than '{priv}'. "
+                        f"Values near 0 indicate equal opportunity.")
+            if "fpr" in q:
+                return (f"Equalized Odds FPR gap measures if both groups have equal false positive rates. "
+                        f"Your FPR difference is {fpr_diff:.4f}. "
+                        f"This means '{unpriv}' has {'higher' if fpr_diff>0 else 'lower'} false positive rates than '{priv}'. "
+                        f"Values near 0 indicate equal error rates.")
+        
+        if "predictive parity" in q:
+            return (f"Predictive Parity measures if positive predictions are equally accurate across groups. "
+                    f"Your difference is {pred_parity:.4f}. "
+                    f"Values near 0 mean the model is equally reliable for both groups.")
+        
+        if "accuracy difference" in q:
+            return (f"Accuracy Difference measures if the model performs equally well for both groups. "
+                    f"Your difference is {acc_diff:.4f}. "
+                    f"Values near 0 indicate equal overall performance.")
+        
         if "bias" in q:
             return (f"Your model has a bias score of {score}/100 ({sev} severity). "
                     f"This measures how unfairly the model treats '{unpriv}' compared to '{priv}' "
                     f"across 6 fairness dimensions. A score of 0 means no bias; 100 means extreme bias.")
 
-    if any(w in q for w in ["how bad","how serious","should i be worried","severe"]):
+    # 🚨 SERIOUSNESS/LEGAL QUESTIONS
+    if any(w in q for w in ["how bad","how serious","should i be worried","severe","legal","compliant","risk"]):
         impact = {
             "none": "No significant action is needed right now, but monitor regularly.",
             "low": "Minor bias exists. Review the recommendations as a precaution.",
             "medium": "This is a real problem. Implement the recommended fixes before deployment.",
             "high": "This is severe. Do not deploy this model without fixing it. Real people are being harmed."
         }
+        
+        legal_risk = ""
+        if di and di < 0.8:
+            legal_risk = f" Your Disparate Impact of {di:.3f} is below the 0.8 legal threshold, creating compliance risk."
+        if spd and abs(spd) > 0.1:
+            legal_risk += f" Your SPD of {spd:.3f} exceeds the ±0.1 industry standard."
+        
         return (f"Your bias score is {score}/100 — classified as {sev.upper()} severity. "
-                f"{impact.get(sev,'')} "
+                f"{impact.get(sev,'')}{legal_risk} "
                 f"The biggest issue is that '{unpriv}' has a positive outcome rate of "
                 f"{groups.get(str(unpriv),{}).get('positive_rate','?')} "
                 f"compared to {groups.get(str(priv),{}).get('positive_rate','?')} for '{priv}'.")
 
-    if any(w in q for w in ["fix","how to fix","what can i do","solution","recommendation"]):
+    # 🔍 ROOT CAUSE ANALYSIS
+    if any(w in q for w in ["why","cause","reason","feature","proxy","training data"]):
+        if "feature" in q or "cause" in q:
+            if proxies:
+                top_proxy = max(proxies.items(), key=lambda x: x[1])
+                return (f"The main bias drivers are: 1) Proxy features - '{top_proxy[0]}' "
+                        f"has {top_proxy[1]:.3f} correlation with '{prot}'. "
+                        f"2) Training data imbalance - '{unpriv}' has only "
+                        f"{groups.get(str(unpriv),{}).get('positive_rate','?')} positive rate vs "
+                        f"{groups.get(str(priv),{}).get('positive_rate','?')} for '{priv}'.")
+            return (f"Primary bias sources: 1) Dataset imbalance between groups, "
+                    f"2) Model learning patterns that disadvantage '{unpriv}', "
+                    f"3) Potential historical bias in training data.")
+        
+        if "proxy" in q:
+            if proxies:
+                return (f"Proxy features detected: {', '.join([f'{k} (corr: {v:.3f})' for k,v in proxies.items()])}. "
+                        f"These features correlate with '{prot}' and enable indirect discrimination. "
+                        f"Consider removing or transforming them.")
+            return "No significant proxy features detected in your model."
+
+    # 🛠️ FIX RECOMMENDATIONS
+    if any(w in q for w in ["fix","how to fix","what can i do","solution","recommendation","implement"]):
         if recs:
             r = recs[0]
-            return (f"The top recommendation is: {r.get('title')}. "
-                    f"{r.get('description','')} "
-                    f"This is a {r.get('priority')} priority fix with {r.get('impact')} expected impact. "
-                    f"Go to the Fixes tab to see all {len(recs)} recommendations with code examples.")
-        return "Check the Fixes tab for detailed recommendations."
+            return (f"TOP PRIORITY FIX: {r.get('title')}\n\n"
+                    f"Description: {r.get('description','')}\n"
+                    f"Priority: {r.get('priority')} | Expected Impact: {r.get('impact')}\n\n"
+                    f"Implementation: Go to the Fixes tab for detailed code examples. "
+                    f"Total fixes available: {len(recs)}. "
+                    f"Start with {r.get('priority')} priority items for maximum impact.")
+        
+        if "statistical parity" in q:
+            return (f"To fix Statistical Parity Difference ({spd:.3f}): "
+                    f"1) Reweight training samples to balance group representation, "
+                    f"2) Apply fairness constraints during training, "
+                    f"3) Adjust decision thresholds per group. "
+                    f"Use the What-If Simulator to test these interventions.")
+        
+        if "disparate impact" in q:
+            return (f"To fix Disparate Impact ({di:.3f}): "
+                    f"1) Oversample underrepresented '{unpriv}' group, "
+                    f"2) Remove proxy features correlated with '{prot}', "
+                    f"3) Use fairness-aware algorithms. "
+                    f"Target: get DI above 0.8 for legal compliance.")
+        
+        return "Check the Fixes tab for detailed technical recommendations with code examples."
 
-    if "proxy" in q:
-        if proxies:
-            top = list(proxies.items())[0]
-            return (f"A proxy feature is one that's correlated with the protected attribute — "
-                    f"meaning the model can discriminate indirectly even if you remove '{prot}' directly. "
-                    f"Your top proxy is '{top[0]}' with a correlation of {top[1]:.3f}. "
-                    f"This means the model is effectively using '{prot}' information through this feature.")
-        return (f"No significant proxy features were detected. "
-                f"This means the model isn't using indirect proxies for '{prot}'.")
+    # 📊 BUSINESS COMMUNICATION
+    if any(w in q for w in ["email","write","draft","letter","board","ceo","summary","presentation","explain to"]):
+        if "ceo" in q or "board" in q:
+            return (f"EXECUTIVE SUMMARY:\n\n"
+                    f"• Bias Level: {sev.upper()} (Score: {score}/100)\n"
+                    f"• Legal Risk: {'HIGH' if di and di < 0.8 else 'MODERATE' if abs(spd or 0) > 0.1 else 'LOW'}\n"
+                    f"• Impact: '{unpriv}' group receives {groups.get(str(unpriv),{}).get('positive_rate','?')} positive outcomes "
+                    f"vs {groups.get(str(priv),{}).get('positive_rate','?')} for '{priv}'\n"
+                    f"• Action Required: Implement {len(recs)} technical fixes before deployment\n"
+                    f"• Timeline: 2-4 weeks for remediation\n"
+                    f"• Business Risk: Potential discrimination claims, regulatory penalties")
+        
+        if "presentation" in q or "slide" in q:
+            return (f"PRESENTATION OUTLINE:\n\n"
+                    f"Slide 1: FairLens Audit Results - {sev.upper()} Bias Detected\n"
+                    f"Slide 2: Key Metrics - SPD: {spd:.3f}, DI: {di:.3f}, Bias Score: {score}/100\n"
+                    f"Slide 3: Impact Analysis - Group comparison and affected population\n"
+                    f"Slide 4: Root Causes - Data imbalance and proxy features\n"
+                    f"Slide 5: Remediation Plan - {len(recs)} technical fixes prioritized\n"
+                    f"Slide 6: Timeline and Resources - 2-4 week implementation plan")
+        
+        return (f"COMMUNICATION DRAFT:\n\n"
+                f"Subject: AI Fairness Audit Results - {sev.upper()} Bias Detected\n\n"
+                f"Our FairLens audit identified {sev} bias (score: {score}/100) in our AI model. "
+                f"The model shows {spd:.3f} statistical parity difference and {di:.3f} disparate impact. "
+                f"We've identified {len(recs)} specific technical fixes to address this. "
+                f"Immediate action recommended before further deployment.")
 
-    if any(w in q for w in ["email","write","draft","letter","board","ceo","explain to"]):
-        return (f"Here is a draft you can adapt:\n\n"
-                f"Subject: AI Fairness Audit Results — Action Required\n\n"
-                f"Our recent FairLens bias audit of our AI system has identified a {sev} level of bias "
-                f"(score: {score}/100). The model shows statistically significant differences in outcomes "
-                f"between '{priv}' and '{unpriv}' groups, with a Statistical Parity Difference of {spd:.4f}. "
-                f"We have identified {len(recs)} specific technical interventions that can address this. "
-                f"We recommend implementing these fixes before further deployment to avoid legal and ethical risks.")
+    # 🧪 ADVANCED ANALYSIS
+    if any(w in q for w in ["what if","scenario","compare","algorithm","random forest","logistic regression"]):
+        if "what if" in q:
+            return (f"Use the What-If Simulator to test interventions: "
+                    f"1) Remove proxy features, 2) Reweight samples, 3) Adjust thresholds. "
+                    f"The simulator shows real-time impact on all fairness metrics.")
+        
+        if "algorithm" in q or "model" in q:
+            return (f"Algorithm comparison: Different models have different bias characteristics. "
+                    f"Logistic regression is often more interpretable for bias analysis. "
+                    f"Random forest may capture complex patterns but can be harder to debias. "
+                    f"Consider fairness-aware algorithms like AIF360's methods.")
+        
+        if "compare" in q:
+            return (f"Compare bias before/after fixes using the Results dashboard. "
+                    f"Track changes in bias score, individual metrics, and group outcomes. "
+                    f"The What-If Simulator provides side-by-side comparisons.")
 
-    # Default
+    # 💡 CREATIVE/STRATEGIC
+    if any(w in q for w in ["design","pipeline","monitor","prevent","best practice","teach","learn"]):
+        if "pipeline" in q or "design" in q:
+            return (f"FAIRNESS PIPELINE DESIGN:\n\n"
+                    f"1. Data Collection: Ensure representative sampling\n"
+                    f"2. Preprocessing: Remove bias, handle missing data fairly\n"
+                    f"3. Model Training: Use fairness-aware algorithms\n"
+                    f"4. Validation: Test multiple fairness metrics\n"
+                    f"5. Deployment: Monitor for drift and bias\n"
+                    f"6. Iteration: Continuous improvement cycle")
+        
+        if "monitor" in q:
+            return (f"MONITORING PLAN:\n\n"
+                    f"• Daily: Track key metrics (SPD, DI, accuracy)\n"
+                    f"• Weekly: Review group outcome distributions\n"
+                    f"• Monthly: Full fairness audit with FairLens\n"
+                    f"• Quarterly: Model retraining with updated data\n"
+                    f"• Alerts: Trigger when bias score increases >10 points")
+        
+        if "teach" in q or "learn" in q:
+            return (f"ALGORITHMIC FAIRNESS FUNDAMENTALS:\n\n"
+                    f"• Fairness is multidimensional - no single metric captures it all\n"
+                    f"• Trade-offs exist between accuracy and fairness\n"
+                    f"• Context matters - different applications need different fairness definitions\n"
+                    f"• Continuous monitoring is essential\n"
+                    f"• Transparency and explainability build trust")
+
+    # Default response
     return (f"Your bias audit shows a score of {score}/100 ({sev} severity). "
-            f"The model treats '{unpriv}' less favourably than '{priv}' across multiple fairness metrics. "
-            f"You can ask me to explain any specific metric, how to fix the bias, "
-            f"or to draft a report for your team.")
+            f"Key metrics: SPD={spd:.3f}, DI={di:.3f}. "
+            f"The model treats '{unpriv}' less favorably than '{priv}' across multiple fairness metrics. "
+            f"You can ask me about specific metrics, root causes, fixes, legal implications, "
+            f"or help drafting communications for stakeholders.")
 
 
 def chat_with_gemini(
