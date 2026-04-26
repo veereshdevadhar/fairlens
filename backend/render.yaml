@@ -5,6 +5,7 @@ services:
   # Runtime configuration
   name: fairlens-backend
   env: python
+  pythonVersion: 3.11
   
   # Build configuration
   buildCommand: pip install -r requirements.txt
