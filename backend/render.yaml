@@ -7,7 +7,7 @@ services:
   env: python
   
   # Build configuration
-  buildCommand: pip install -r backend/requirements.txt
+  buildCommand: pip install -r requirements.txt
   
   # Start command
   startCommand: cd backend && python -m uvicorn main:app --host 0.0.0.0 --port $PORT
