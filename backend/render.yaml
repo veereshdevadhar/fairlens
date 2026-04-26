@@ -1,0 +1,22 @@
+services:
+  # Type of service
+  type: web
+  
+  # Runtime configuration
+  name: fairlens-backend
+  env: python
+  
+  # Build configuration
+  buildCommand: pip install -r requirements.txt
+  
+  # Start command
+  startCommand: python -m uvicorn main:app --host 0.0.0.0 --port 8000
+  
+  # Auto-deploy from main branch
+  autoDeploy: true
+  
+  # Health check path
+  healthCheckPath: /health
+  
+  # Plan: Free tier
+  plan: free
