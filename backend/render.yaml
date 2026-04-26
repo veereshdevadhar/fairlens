@@ -18,5 +18,21 @@ services:
   # Health check path
   healthCheckPath: /health
   
+  # Environment variables
+  envVars:
+    - key: GEMINI_API_KEY
+      sync: false
+      value: ""
+  
   # Plan: Free tier
   plan: free
+  
+  # Instance configuration
+  instanceType: free
+  
+  # Health check settings
+  healthCheck:
+    path: /health
+    checkInterval: 30
+    timeout: 10
+    gracePeriod: 5
