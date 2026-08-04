@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { fetchDatasets, loadDataset, runAnalysis } from '../utils/api';
+import {
+  BASE,
+  fetchDatasets,
+  loadDataset,
+  runAnalysis,
+} from '../utils/api';
 import './AnalyzePage.css';
 
 const STEP_LABELS = ['Choose Dataset', 'Configure Audit', 'Running Analysis'];
@@ -37,9 +42,9 @@ export default function AnalyzePage({ onResults }) {
     try {
       let url;
       if (datasetId) {
-        url = 'http://localhost:8000/datasets/' + datasetId + '/unique-values/' + encodeURIComponent(col);
+        url = `${BASE}/datasets/${datasetId}/unique-values/${encodeURIComponent(col)}`;
       } else if (isUpload) {
-        url = 'http://localhost:8000/upload/unique-values/' + encodeURIComponent(col);
+        url = `${BASE}/upload/unique-values/${encodeURIComponent(col)}`;
       } else {
         return;
       }
@@ -85,11 +90,11 @@ export default function AnalyzePage({ onResults }) {
       });
       // Pre-fetch full unique values for the default columns so dropdowns are populated
       await Promise.all([
-        fetch('http://localhost:8000/datasets/' + id + '/unique-values/' + encodeURIComponent(meta.label_col))
+        fetch(`${BASE}/datasets/${id}/unique-values/${encodeURIComponent(meta.label_col)}`)
           .then(r => r.json()).then(d => {
             if (d.values) setColumnValues(prev => ({ ...prev, [id + '__' + meta.label_col]: d.values.map(String) }));
           }).catch(() => {}),
-        fetch('http://localhost:8000/datasets/' + id + '/unique-values/' + encodeURIComponent(meta.default_protected))
+        fetch(`${BASE}/datasets/${id}/unique-values/${encodeURIComponent(meta.default_protected)}`)
           .then(r => r.json()).then(d => {
             if (d.values) setColumnValues(prev => ({ ...prev, [id + '__' + meta.default_protected]: d.values.map(String) }));
           }).catch(() => {}),
@@ -110,7 +115,7 @@ export default function AnalyzePage({ onResults }) {
     const form = new FormData();
     form.append('file', file);
     try {
-      const res = await fetch('http://localhost:8000/upload', { method: 'POST', body: form });
+      const res = await fetch(`${BASE}/upload`, { method: 'POST', body: form });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Upload failed');
       setPreview(data);
