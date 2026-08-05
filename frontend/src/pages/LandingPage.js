@@ -26,7 +26,7 @@ export default function LandingPage({ goTo }) {
     <div className="landing">
       {/* Hero */}
       <section className="hero">
-        <div className="hero-badge">Google Solution Challenge 2026</div>
+        
         <h1 className="hero-title">
           Find and Fix<br />
           <span>Hidden Bias</span> in AI
